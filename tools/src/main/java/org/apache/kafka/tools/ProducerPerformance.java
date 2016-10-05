@@ -12,23 +12,22 @@
  */
 package org.apache.kafka.tools;
 
-import static net.sourceforge.argparse4j.impl.Arguments.store;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.Properties;
-import java.util.Random;
-
-import org.apache.kafka.clients.producer.Callback;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
-
 import net.sourceforge.argparse4j.ArgumentParsers;
 import net.sourceforge.argparse4j.inf.ArgumentParser;
 import net.sourceforge.argparse4j.inf.ArgumentParserException;
 import net.sourceforge.argparse4j.inf.Namespace;
+import org.apache.kafka.clients.producer.*;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Properties;
+
+import static net.sourceforge.argparse4j.impl.Arguments.store;
 
 public class ProducerPerformance {
 
@@ -40,6 +39,7 @@ public class ProducerPerformance {
 
             /* parse args */
             String topicName = res.getString("topic");
+            String eventFilePath = res.getString("eventFilePath");
             long numRecords = res.getLong("numRecords");
             int recordSize = res.getInt("recordSize");
             int throughput = res.getInt("throughput");
@@ -59,10 +59,13 @@ public class ProducerPerformance {
             KafkaProducer<byte[], byte[]> producer = new KafkaProducer<byte[], byte[]>(props);
 
             /* setup perf test */
-            byte[] payload = new byte[recordSize];
-            Random random = new Random(0);
-            for (int i = 0; i < payload.length; ++i)
-                payload[i] = (byte) (random.nextInt(26) + 65);
+
+//            byte[] payload = new byte[recordSize];
+//            Random random = new Random(0);
+//            for (int i = 0; i < payload.length; ++i)
+//                payload[i] = (byte) (random.nextInt(26) + 65);
+
+            byte[] payload = readEventFromFile(eventFilePath);
             ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(topicName, payload);
             Stats stats = new Stats(numRecords, 5000);
             long startMs = System.currentTimeMillis();
@@ -107,6 +110,13 @@ public class ProducerPerformance {
                 .metavar("TOPIC")
                 .help("produce messages to this topic");
 
+        parser.addArgument("--event-file-path")
+                .action(store())
+                .required(true)
+                .type(String.class)
+                .metavar("EVENT-FILE-PATH")
+                .help("file path to sample event");
+
         parser.addArgument("--num-records")
                 .action(store())
                 .required(true)
@@ -139,6 +149,13 @@ public class ProducerPerformance {
                  .help("kafka producer related configuaration properties like bootstrap.servers,client.id etc..");
 
         return parser;
+    }
+
+    private static  byte[] readEventFromFile(String filePath) throws IOException {
+        Path path = Paths.get(filePath);
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        Files.copy(path, outputStream);
+        return outputStream.toByteArray();
     }
 
     private static class Stats {
