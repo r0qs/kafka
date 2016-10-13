@@ -3,9 +3,9 @@
  * file distributed with this work for additional information regarding copyright ownership. The ASF licenses this file
  * to You under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the
  * License. You may obtain a copy of the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
@@ -25,6 +25,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import java.util.Properties;
 
 import static net.sourceforge.argparse4j.impl.Arguments.store;
@@ -48,10 +49,14 @@ public class ProducerPerformance {
             Properties props = new Properties();
             if (producerProps != null)
                 for (String prop : producerProps) {
-                    String[] pieces = prop.split("=");
-                    if (pieces.length != 2)
-                        throw new IllegalArgumentException("Invalid property: " + prop);
-                    props.put(pieces[0], pieces[1]);
+                    if (prop.equals("ssl.key.password=")) {
+                        props.put("ssl.key.password", "");
+                    } else {
+                      String[] pieces = prop.split("=");
+                      if (pieces.length != 2)
+                          throw new IllegalArgumentException("Invalid property: " + prop);
+                      props.put(pieces[0], pieces[1]);
+                    }
                 }
 
             props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
@@ -60,13 +65,14 @@ public class ProducerPerformance {
 
             /* setup perf test */
 
-//            byte[] payload = new byte[recordSize];
-//            Random random = new Random(0);
-//            for (int i = 0; i < payload.length; ++i)
-//                payload[i] = (byte) (random.nextInt(26) + 65);
+            // byte[] payload = new byte[recordSize];
+            // Random random = new Random(0);
+            // for (int i = 0; i < payload.length; ++i)
+            //     payload[i] = (byte) (random.nextInt(26) + 65);
 
             byte[] payload = readEventFromFile(eventFilePath);
             ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(topicName, payload);
+
             Stats stats = new Stats(numRecords, 5000);
             long startMs = System.currentTimeMillis();
 
@@ -115,6 +121,7 @@ public class ProducerPerformance {
                 .required(true)
                 .type(String.class)
                 .metavar("EVENT-FILE-PATH")
+                .dest("eventFilePath")
                 .help("file path to sample event");
 
         parser.addArgument("--num-records")
