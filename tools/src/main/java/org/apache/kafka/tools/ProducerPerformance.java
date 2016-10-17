@@ -18,6 +18,9 @@ import net.sourceforge.argparse4j.inf.ArgumentParserException;
 import net.sourceforge.argparse4j.inf.Namespace;
 import org.apache.kafka.clients.producer.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -65,13 +68,18 @@ public class ProducerPerformance {
 
             /* setup perf test */
 
-            // byte[] payload = new byte[recordSize];
-            // Random random = new Random(0);
-            // for (int i = 0; i < payload.length; ++i)
-            //     payload[i] = (byte) (random.nextInt(26) + 65);
+            byte[] payload = new byte[recordSize];
+            Random random = new Random(0);
+            for (int i = 0; i < payload.length; ++i)
+                payload[i] = (byte) (random.nextInt(26) + 65);
 
-            byte[] payload = readEventFromFile(eventFilePath);
-            ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(topicName, payload);
+            ObjectMapper mapper = new ObjectMapper();
+            ObjectNode root = (ObjectNode) mapper.readTree(readEventFromFile(eventFilePath));
+            root.with("entries").with("entrypoint").with("response").with("content").put("text", payload);
+            root.with("entries").with("endpoint").with("response").with("content").put("text", payload);
+
+            byte[] event = mapper.writeValueAsBytes(root);
+            ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(topicName, event);
 
             Stats stats = new Stats(numRecords, 5000);
             long startMs = System.currentTimeMillis();
@@ -158,7 +166,7 @@ public class ProducerPerformance {
         return parser;
     }
 
-    private static  byte[] readEventFromFile(String filePath) throws IOException {
+    private static byte[] readEventFromFile(String filePath) throws IOException {
         Path path = Paths.get(filePath);
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         Files.copy(path, outputStream);
